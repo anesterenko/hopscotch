@@ -1,0 +1,22 @@
+<%
+function optEscape(str, unsafe){
+    if(unsafe){
+        return _.escape(str);
+    }
+    return str;
+}
+%>
+<%
+    var i18n = data.i18n;
+    var buttons = data.buttons;
+    var step = data.step;
+    var tour = data.tour;
+%>
+<div class="hopscotch-bubble-container" style="width: <%= step.width %>px; height: <%= step.height %>px;">
+</div>
+<div class="hopscotch-bubble-arrow-container hopscotch-arrow">
+    <div class="hopscotch-bubble-arrow-border"></div>
+    <div class="hopscotch-bubble-arrow"></div>
+    <div class="pulsate-circle"></div>
+</div>
+<div class="hopscotch-bottom-margin-helper"></div>

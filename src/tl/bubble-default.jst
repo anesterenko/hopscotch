@@ -12,7 +12,7 @@ var buttons = data.buttons;
 var step = data.step;
 var tour = data.tour;
 %>
-<div class="hopscotch-bubble-container" style="width: <%= step.width %>px; padding: <%= step.padding %>px;">
+<div class="hopscotch-bubble-container" style="width: <%= step.width %>px; padding: <%= step.padding %>px; height: <%= step.height %>px;">
   <% if(tour.isTour){ %><span class="hopscotch-bubble-number"><%= i18n.stepNum %></span><% } %>
   <div class="hopscotch-bubble-content">
     <% if(step.title !== ''){ %><h3 class="hopscotch-title"><%= optEscape(step.title, tour.unsafe) %></h3><% } %>

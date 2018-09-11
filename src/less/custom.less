@@ -1,0 +1,121 @@
+div.hopscotch-bubble.custom {
+  @bubbleCustomColor: #F1F3F4;
+  @bubbleMargin: 10px;
+  @pulseCircleColor: #EE7231;
+  @bubbleCornerRadius: 5px;
+  @bubbleBorderWidth: 0px;
+
+  background-color: @bubbleCustomColor;
+  border: @bubbleBorderWidth solid #000; /* default */
+  border: @bubbleBorderWidth solid @borderColor; /* transparent, if supported */
+  border-radius: @bubbleCornerRadius;
+  box-shadow: 0 12px 15px 0 rgba(0, 0, 0, 0.23999999463558197), 0 12px 50px 0 rgba(0, 0, 0, 0.20000000298023224);
+  margin: @bubbleMargin;
+
+  .hopscotch-bottom-margin-helper {
+    position: absolute;
+    height: 30px;
+  }
+
+  .hopscotch-bubble-container {
+    padding: unset;
+    overflow: hidden;
+    border-radius: @bubbleCornerRadius
+  }
+
+  .hopscotch-bubble-arrow-container {
+    @arrowWidth: 17px;
+    @pulseCircleWidth: 10px;
+
+    .baseCircle() {
+      animation: pulsate 1s ease-out;
+      animation-delay: 0.5s;
+      animation-iteration-count: 2;
+      opacity: 0.0;
+      position: relative;
+      background-color: @pulseCircleColor;
+      border-radius: 100%;
+      width: @pulseCircleWidth;
+      height: @pulseCircleWidth;
+      z-index: -1;
+    }
+
+    &.up {
+      .hopscotch-bubble-arrow-border {
+        border-bottom-color: transparent;
+      }
+
+      .hopscotch-bubble-arrow {
+        border-bottom-color: @bubbleCustomColor;
+      }
+
+      .pulsate-circle {
+        top: 0 - @pulseCircleWidth - @arrowWidth * 2;
+        left: 12px;
+        .baseCircle
+      }
+    }
+
+    &.down {
+      .hopscotch-bubble-arrow-border {
+        border-top-color: transparent;
+      }
+
+      .hopscotch-bubble-arrow {
+        border-top-color: @bubbleCustomColor;
+      }
+
+      .pulsate-circle {
+        top: 0 - @arrowWidth / 2 - @pulseCircleWidth;
+        left: 12px;
+        .baseCircle
+      }
+    }
+
+    &.left {
+      .hopscotch-bubble-arrow-border {
+        border-right-color: transparent;
+      }
+
+      .hopscotch-bubble-arrow-border {
+        border-right-color: @bubbleCustomColor;
+      }
+
+      .pulsate-circle {
+        top: 0 - @pulseCircleWidth * 2 - @arrowWidth * 2 - 2;
+        left: -12px;
+        .baseCircle
+      }
+    }
+
+    &.right {
+      .hopscotch-bubble-arrow-border {
+        border-left-color: transparent;
+      }
+
+      .hopscotch-bubble-arrow {
+        border-left-color: @bubbleCustomColor;
+      }
+
+      .pulsate-circle {
+        top: 0 - @pulseCircleWidth * 2 - @arrowWidth * 2 - 2;
+        left: 12px;
+        .baseCircle
+      }
+    }
+  }
+}
+
+@keyframes pulsate {
+  0% {
+    -webkit-transform: scale(0.1, 0.1);
+    opacity: 1.0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    -webkit-transform: scale(4.2, 4.2);
+    opacity: 0.0;
+  }
+}

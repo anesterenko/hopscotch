@@ -283,8 +283,7 @@ module.exports = function(grunt) {
       amd: {
         dest: 'tmp/js/hopscotch_amd_tmp.js',
         options: {
-          format: 'amd',
-          moduleId: HOPSCOTCH
+          format: 'amd'
         },
         src: 'src/js/hopscotch.js'
       },
@@ -325,7 +324,7 @@ module.exports = function(grunt) {
     watch: {
       jsFiles: {
         files: ['<%=paths.source%>/**/*', '<%=paths.test%>/**/*'],
-        tasks: ['test']
+        tasks: ['build']
       }
     }
   });

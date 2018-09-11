@@ -8,6 +8,7 @@ var Hopscotch,
     customRenderer,
     customEscape,
     templateToUse = 'bubble_default',
+    customTemplate = 'custom_template',
     Sizzle = window.Sizzle || null,
     utils,
     callbacks,
@@ -51,6 +52,7 @@ defaultOpts       = {
   arrowWidth:      20,
   skipIfNoElement: true,
   isRtl:           false,
+  isSlide:         false,
   cookieName:      'hopscotch.tour.state'
 };
 
@@ -152,8 +154,26 @@ utils = {
   getPixelValue: function(val) {
     var valType = typeof val;
     if (valType === 'number') { return val; }
-    if (valType === 'string') { return parseInt(val, 10); }
+    if (valType === 'string') {
+      return parseInt(val, 10);
+    }
     return 0;
+  },
+
+  getRelativePixelValue: function(val, dimension, step) {
+    if (typeof val === 'string') {
+      if (val.indexOf('%') !== -1) {
+        var intValue = parseInt(val.split('%').shift(), 10);
+        intValue = intValue > 100 ? 100 : intValue;
+
+        var boundingRect = this.getStepTarget(step).getBoundingClientRect();
+        var boundingRectDim = dimension === 'width' ? boundingRect.width : boundingRect.height;
+
+        return Math.floor(boundingRectDim * (intValue / 100));
+      }
+    }
+
+    return this.getPixelValue(val);
   },
 
   /**
@@ -341,7 +361,10 @@ utils = {
    *
    * @private
    */
-  getStepTargetHelper: function(target){
+  getStepTargetHelper: function(target) {
+    if (target instanceof HTMLElement) {
+        return target;
+    }
     var result = document.getElementById(target);
 
     //Backwards compatibility: assume the string is an id
@@ -588,109 +611,136 @@ HopscotchBubble.prototype = {
    * target element and the orientation and offset information specified by
    * the JSON.
    */
-  setPosition: function(step) {
+  setPosition: function(step, skipCleanFadeClasses) {
     var bubbleBoundingHeight,
         bubbleBoundingWidth,
         boundingRect,
-        top,
-        left,
         arrowOffset,
         verticalLeftPosition,
         targetEl     = utils.getStepTarget(step),
         el           = this.element,
         arrowEl      = this.arrowEl,
-        arrowPos     = step.isRtl ? 'right' : 'left';
+        arrowPos     = step.isRtl ? 'right' : 'left',
+        coordinates;
 
     utils.flipPlacement(step);
     utils.normalizePlacement(step);
 
     bubbleBoundingWidth = el.offsetWidth;
     bubbleBoundingHeight = el.offsetHeight;
-    utils.removeClass(el, 'fade-in-down fade-in-up fade-in-left fade-in-right');
+
+    if (!skipCleanFadeClasses) {
+        utils.removeClass(el, 'fade-in-down fade-in-up fade-in-left fade-in-right');
+    }
 
     // SET POSITION
     boundingRect = targetEl.getBoundingClientRect();
 
     verticalLeftPosition = step.isRtl ? boundingRect.right - bubbleBoundingWidth : boundingRect.left;
 
-    if (step.placement === 'top') {
-      top = (boundingRect.top - bubbleBoundingHeight) - this.opt.arrowWidth;
-      left = verticalLeftPosition;
-    }
-    else if (step.placement === 'bottom') {
-      top = boundingRect.bottom + this.opt.arrowWidth;
-      left = verticalLeftPosition;
-    }
-    else if (step.placement === 'left') {
-      top = boundingRect.top;
-      left = boundingRect.left - bubbleBoundingWidth - this.opt.arrowWidth;
-    }
-    else if (step.placement === 'right') {
-      top = boundingRect.top;
-      left = boundingRect.right + this.opt.arrowWidth;
-    }
-    else {
-      throw new Error('Bubble placement failed because step.placement is invalid or undefined!');
+    function getPositionForSlide() {
+        var top, left;
+        left = (boundingRect.left + targetEl.offsetWidth / 2) - (bubbleBoundingWidth / 2);
+        top = boundingRect.top + 30;
+
+        return {top: top, left: left};
     }
 
-    // SET (OR RESET) ARROW OFFSETS
-    if (step.arrowOffset !== 'center') {
-      arrowOffset = utils.getPixelValue(step.arrowOffset);
-    }
-    else {
-      arrowOffset = step.arrowOffset;
-    }
-    if (!arrowOffset) {
-      arrowEl.style.top = '';
-      arrowEl.style[arrowPos] = '';
-    }
-    else if (step.placement === 'top' || step.placement === 'bottom') {
-      arrowEl.style.top = '';
-      if (arrowOffset === 'center') {
-        arrowEl.style[arrowPos] = Math.floor((bubbleBoundingWidth / 2) - arrowEl.offsetWidth/2) + 'px';
-      }
-      else {
-        // Numeric pixel value
-        arrowEl.style[arrowPos] = arrowOffset + 'px';
-      }
-    }
-    else if (step.placement === 'left' || step.placement === 'right') {
-      arrowEl.style[arrowPos] = '';
-      if (arrowOffset === 'center') {
-        arrowEl.style.top = Math.floor((bubbleBoundingHeight / 2) - arrowEl.offsetHeight/2) + 'px';
-      }
-      else {
-        // Numeric pixel value
-        arrowEl.style.top = arrowOffset + 'px';
-      }
+    function getPositionForBubble() {
+       var top, left;
+
+       if (step.placement === 'top') {
+            top = (boundingRect.top - bubbleBoundingHeight) - this.opt.arrowWidth;
+            left = verticalLeftPosition;
+        }
+        else if (step.placement === 'bottom') {
+            top = boundingRect.bottom + this.opt.arrowWidth;
+            left = verticalLeftPosition;
+        }
+        else if (step.placement === 'left') {
+            top = boundingRect.top;
+            left = boundingRect.left - bubbleBoundingWidth - this.opt.arrowWidth;
+        }
+        else if (step.placement === 'right') {
+            top = boundingRect.top;
+            left = boundingRect.right + this.opt.arrowWidth;
+        }
+        else {
+            throw new Error('Bubble placement failed because step.placement is invalid or undefined!');
+        }
+
+        if (arrowEl) {
+            // SET (OR RESET) ARROW OFFSETS
+            if (step.arrowOffset !== 'center') {
+                arrowOffset = utils.getPixelValue(step.arrowOffset);
+            }
+            else {
+                arrowOffset = step.arrowOffset;
+            }
+            if (!arrowOffset) {
+                arrowEl.style.top = '';
+                arrowEl.style[arrowPos] = '';
+            }
+            else if (step.placement === 'top' || step.placement === 'bottom') {
+                arrowEl.style.top = '';
+                if (arrowOffset === 'center') {
+                    arrowEl.style[arrowPos] = Math.floor((bubbleBoundingWidth / 2) - arrowEl.offsetWidth/2) + 'px';
+                }
+                else {
+                    // Numeric pixel value
+                    arrowEl.style[arrowPos] = arrowOffset + 'px';
+                }
+            }
+            else if (step.placement === 'left' || step.placement === 'right') {
+                arrowEl.style[arrowPos] = '';
+                if (arrowOffset === 'center') {
+                    arrowEl.style.top = Math.floor((bubbleBoundingHeight / 2) - arrowEl.offsetHeight/2) + 'px';
+                }
+                else {
+                    // Numeric pixel value
+                    arrowEl.style.top = arrowOffset + 'px';
+                }
+            }
+        }
+
+        // HORIZONTAL OFFSET
+        if (step.xOffset === 'center') {
+            left = (boundingRect.left + targetEl.offsetWidth/2) - (bubbleBoundingWidth / 2);
+        }
+        else {
+            left += utils.getPixelValue(step.xOffset);
+        }
+        // VERTICAL OFFSET
+        if (step.yOffset === 'center') {
+            top = (boundingRect.top + targetEl.offsetHeight/2) - (bubbleBoundingHeight / 2);
+        }
+        else {
+            top += utils.getPixelValue(step.yOffset);
+        }
+
+        return {top: top, left: left};
     }
 
-    // HORIZONTAL OFFSET
-    if (step.xOffset === 'center') {
-      left = (boundingRect.left + targetEl.offsetWidth/2) - (bubbleBoundingWidth / 2);
-    }
-    else {
-      left += utils.getPixelValue(step.xOffset);
-    }
-    // VERTICAL OFFSET
-    if (step.yOffset === 'center') {
-      top = (boundingRect.top + targetEl.offsetHeight/2) - (bubbleBoundingHeight / 2);
-    }
-    else {
-      top += utils.getPixelValue(step.yOffset);
+    if (step.isSlide) { // placement used only for ordinary bubble
+        coordinates = getPositionForSlide.call(this);
+        if (arrowEl) {
+            arrowEl.style.display = 'none';
+        }
+    } else {
+        coordinates = getPositionForBubble.call(this);
     }
 
     // ADJUST TOP FOR SCROLL POSITION
     if (!step.fixedElement) {
-      top += utils.getScrollTop();
-      left += utils.getScrollLeft();
+      coordinates.top += utils.getScrollTop();
+      coordinates.left += utils.getScrollLeft();
     }
 
     // ACCOUNT FOR FIXED POSITION ELEMENTS
     el.style.position = (step.fixedElement ? 'fixed' : 'absolute');
 
-    el.style.top = top + 'px';
-    el.style.left = left + 'px';
+    el.style.top = coordinates.top + 'px';
+    el.style.left = coordinates.left + 'px';
   },
 
   /**
@@ -781,8 +831,11 @@ HopscotchBubble.prototype = {
         isRtl: step.isRtl,
         placement: step.placement,
         padding: utils.valOrDefault(step.padding, this.opt.bubblePadding),
-        width: utils.getPixelValue(step.width) || this.opt.bubbleWidth,
-        customData: (step.customData || {})
+        width: utils.getRelativePixelValue(step.width, 'width', step) || undefinedStr,
+        height: utils.getRelativePixelValue(step.height, 'height', step) || undefinedStr,
+        customData: (step.customData || {}),
+        isSlide: step.isSlide,
+        baseClass: step.baseClass
       },
       tour:{
         isTour: this.opt.isTourBubble,
@@ -803,8 +856,26 @@ HopscotchBubble.prototype = {
       }
       el.innerHTML = winHopscotch.templates[tourSpecificRenderer](opts);
     }
-    else if(customRenderer){
-      el.innerHTML = customRenderer(opts);
+    else if(customRenderer) {
+        while (el.firstChild) {
+            el.removeChild(el.firstChild);
+        }
+        var customContent = customRenderer(opts);
+
+        if (Array.isArray(customContent)) {
+            // suggest that it's array of dom nodes
+            utils.removeClass(el, 'animated');
+            el.innerHTML = winHopscotch.templates[customTemplate](opts);
+
+            var baseClass = this.opt.baseClass ? this.opt.baseClass : 'custom';
+            utils.addClass(el, baseClass);
+
+            customContent.forEach(function (element) {
+                el.firstElementChild.appendChild(element);
+            });
+        } else {
+            el.innerHTML = customContent;
+        }
     }
     else{
       if(!winHopscotch.templates || (typeof winHopscotch.templates[templateToUse] !== 'function')){
@@ -883,6 +954,9 @@ HopscotchBubble.prototype = {
    * @private
    */
   _setArrow: function(placement) {
+    if (!this.arrowEl) {
+      return;
+    }
     utils.removeClass(this.arrowEl, 'down up right left');
 
     // Whatever the orientation is, we want to arrow to appear
@@ -922,7 +996,7 @@ HopscotchBubble.prototype = {
 
   show: function() {
     var self      = this,
-        fadeClass = 'fade-in-' + this._getArrowDirection(),
+        fadeClass = this.currStep.isSlide ? 'fade-in-up' : 'fade-in-' + this._getArrowDirection(),
         fadeDur   = 1000;
 
     utils.removeClass(this.element, 'hide');
@@ -954,7 +1028,7 @@ HopscotchBubble.prototype = {
       utils.removeClass(el, 'hide');
       utils.addClass(el, 'invisible');
     }
-    utils.removeClass(el, 'animate fade-in-up fade-in-down fade-in-right fade-in-left');
+    utils.removeClass(el, 'animated fade-in-up fade-in-down fade-in-right fade-in-left');
     this.isShowing = false;
     return this;
   },
@@ -1054,6 +1128,7 @@ HopscotchBubble.prototype = {
         node,
         i,
         currTour,
+        lastWinResizeTime = Date.now(),
         opt;
 
     //Register DOM element for this bubble.
@@ -1068,7 +1143,8 @@ HopscotchBubble.prototype = {
       arrowWidth:     defaultOpts.arrowWidth,
       isRtl:          defaultOpts.isRtl,
       showNumber:     true,
-      isTourBubble:   true
+      isTourBubble:   true,
+      baseClass: ''
     };
     initOpt = (typeof initOpt === undefinedStr ? {} : initOpt);
     utils.extend(opt, initOpt);
@@ -1085,6 +1161,11 @@ HopscotchBubble.prototype = {
       }
     }
 
+    if (opt.baseClass) {
+        utils.addClass(el, opt.baseClass);
+    }
+
+
     /**
      * Not pretty, but IE8 doesn't support Function.bind(), so I'm
      * relying on closures to keep a handle of "this".
@@ -1093,13 +1174,17 @@ HopscotchBubble.prototype = {
      * @private
      */
     onWinResize = function() {
-      if (resizeCooldown || !self.isShowing) {
+      // W/A for APS UI winresize blink
+      var now = Date.now();
+      var callsInterval = now - lastWinResizeTime;
+      lastWinResizeTime = now;
+
+      if (callsInterval < 500 || resizeCooldown || !self.isShowing) {
         return;
       }
-
       resizeCooldown = true;
       setTimeout(function() {
-        self.setPosition(self.currStep);
+        self.setPosition(self.currStep, true);
         resizeCooldown = false;
       }, 100);
     };
@@ -1117,9 +1202,11 @@ HopscotchBubble.prototype = {
     //Hide the bubble by default
     this.hide();
 
+    var bubbleContainer = document.body;
+
     //Finally, append our new bubble to body once the DOM is ready.
     if (utils.documentIsReady()) {
-      document.body.appendChild(el);
+      utils.getStepTargetHelper(bubbleContainer).appendChild(el);
     }
     else {
       // Moz, webkit, Opera
@@ -1128,8 +1215,8 @@ HopscotchBubble.prototype = {
           document.removeEventListener('DOMContentLoaded', appendToBody);
           window.removeEventListener('load', appendToBody);
 
-          document.body.appendChild(el);
-        };
+          utils.getStepTargetHelper(bubbleContainer).appendChild(el);
+        }.bind(this);
 
         document.addEventListener('DOMContentLoaded', appendToBody, false);
       }
@@ -1139,9 +1226,9 @@ HopscotchBubble.prototype = {
           if (document.readyState === 'complete') {
             document.detachEvent('onreadystatechange', appendToBody);
             window.detachEvent('onload', appendToBody);
-            document.body.appendChild(el);
+              utils.getStepTargetHelper(bubbleContainer).appendChild(el);
           }
-        };
+        }.bind(this);
 
         document.attachEvent('onreadystatechange', appendToBody);
       }
@@ -2238,6 +2325,10 @@ Hopscotch = function(initOptions) {
    */
   this.getState = function() {
     return utils.getState(getOption('cookieName'));
+  };
+
+  this.getOption = function(option) {
+    return getOption(option);
   };
 
   /**
